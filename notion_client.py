@@ -1,7 +1,6 @@
 import configparser
 from notion.client import NotionClient
 import pandas as pd
-from pprint import pprint
 
 def get_dicts_of_all_items(cv) -> list:
     return [row.get_all_properties() for row in cv.collection.get_rows()]
