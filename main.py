@@ -1,9 +1,15 @@
 import configparser
-
-from notion.client import *
-from notion.collection import NotionDate
-
+from notion.client import NotionClient
 import pandas as pd
+from pprint import pprint
+
+def get_dicts_of_all_items(cv) -> list:
+    return [row.get_all_properties() for row in cv.collection.get_rows()]
+
+def convert_database_to_pandas(cv):
+    dataframe = pd.DataFrame(get_dicts_of_all_items(cv))
+    dataframe['ablaufdatum'] = [None if time is None else time.start for time in dataframe['ablaufdatum']]
+    return dataframe
 
 def main():
     config = configparser.ConfigParser()
@@ -13,11 +19,8 @@ def main():
 
     # Access a database using the URL of the database page or the inline block
     cv = client.get_collection_view(config.get("notion", "database_url"))
-
-    print(get_all_available_items(cv))
-
-def get_all_available_items(cv):
-    return [row.name for row in cv.collection.get_rows() if int(row.anzahl) > 0]
+    dataframe = convert_database_to_pandas(cv)
+    dataframe.to_csv("test.csv")
 
 if __name__ == '__main__':
     main()
