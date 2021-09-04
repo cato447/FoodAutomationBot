@@ -1,43 +1,35 @@
-from telegram import update
+import configparser
+import logging
+import re
+
 from telegram.ext import Updater
 from telegram.ext import CommandHandler
 from telegram.ext import MessageHandler, Filters
 
-import configparser
-import logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                     level=logging.INFO)
-logger = logging.getLogger(__name__)
+from notion_client import CustomNotionClient
+class FoodBot():
+    def __init__(self) -> None:
+        logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                            level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
 
-config = configparser.ConfigParser()
-config.read('credentials.ini')
-updater = Updater(token=config.get("telegram", "token"), use_context=True)
-dispatcher = updater.dispatcher
-logger.info("Started bot")
+        config = configparser.ConfigParser()
+        config.read('credentials.ini')
+        self.updater = Updater(token=config.get("telegram", "token"), use_context=True)
+        self.dispatcher = self.updater.dispatcher
 
-def start(update, context):
-    logger.info(f"Recieved /start message")
-    context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+        self.notion_client = CustomNotionClient()
 
-start_handler = CommandHandler('start', start)
-dispatcher.add_handler(start_handler)
+        food_handler = MessageHandler(Filters.regex(re.compile('^food$|^essen$', re.IGNORECASE)), self.get_food)
+        self.dispatcher.add_handler(food_handler)
 
-def echo(update, context):
-    logger.info(f"Recieved message: {update.message.text}")
-    context.bot.send_message(chat_id=update.effective_chat.id, text=update.message.text)
+        self.updater.start_polling()
 
-echo_handler = MessageHandler(Filters.text & (~Filters.command), echo)
-dispatcher.add_handler(echo_handler)
+        self.logger.info("Started bot")
 
-def get_food(update, context):
-    logger.info("Getting food")
-    if len(context.args) > 0:
-        text_caps = ' '.join(context.args).upper()
-        context.bot.send_message(chat_id=update.effective_chat.id, text=text_caps)
-    else:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="No text passed!")
+    def get_food(self, update, context):
+        self.logger.info("Getting food")
+        context.bot.send_message(chat_id=update.effective_chat.id, text=self.notion_client.get_names_of_available_products())
 
-food_handler = CommandHandler('food', get_food)
-dispatcher.add_handler(food_handler)
-
-updater.start_polling()
+if __name__ == '__main__':
+    food_bot = FoodBot()

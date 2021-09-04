@@ -1,25 +1,35 @@
 import configparser
 from notion.client import NotionClient
 import pandas as pd
+from pandas.core.indexing import convert_from_missing_indexer_tuple
 
-def get_dicts_of_all_items(cv) -> list:
-    return [row.get_all_properties() for row in cv.collection.get_rows()]
+class CustomNotionClient():
+    def __init__(self) -> None:
+        config = configparser.ConfigParser()
+        config.read('credentials.ini')
 
-def convert_database_to_pandas(cv):
-    dataframe = pd.DataFrame(get_dicts_of_all_items(cv))
-    dataframe['ablaufdatum'] = [None if time is None else time.start for time in dataframe['ablaufdatum']]
-    return dataframe
+        self.client = NotionClient(token_v2=config.get("notion", "token"))
+        self.cv = self.client.get_collection_view(config.get("notion", "database_url"))
 
-def main():
-    config = configparser.ConfigParser()
-    config.read('credentials.ini')
+    def __get_dicts_of_all_items(self) -> list:
+        return [row.get_all_properties() for row in self.cv.collection.get_rows()]
 
-    client = NotionClient(token_v2=config.get("notion", "token"))
+    def convert_database_to_pandas(self):
+        dataframe = pd.DataFrame(self.__get_dicts_of_all_items())
+        dataframe['ablaufdatum'] = [None if time is None else time.start for time in dataframe['ablaufdatum']]
+        return dataframe
 
-    # Access a database using the URL of the database page or the inline block
-    cv = client.get_collection_view(config.get("notion", "database_url"))
-    dataframe = convert_database_to_pandas(cv)
+    def get_names_of_available_products(self):
+        names = [f"- {row.name}" for row in self.cv.collection.get_rows() if int(row.anzahl) > 0]
+        return '\n'.join(names)
+
+    def get_contents_as_string(self):
+        self.convert_database_to_pandas()
+
+def __main():
+    notion_client = NotionClient()
+    dataframe = notion_client.convert_database_to_pandas()
     dataframe.to_csv("test.csv")
 
 if __name__ == '__main__':
-    main()
+    __main()
